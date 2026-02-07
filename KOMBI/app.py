@@ -19,6 +19,11 @@ st.markdown("""
     .stButton > button { border: 1px solid #444; color: #ccc; background: #0F0F0F; font-family: 'Bebas Neue', sans-serif; font-size: 20px; width: 100%; }
     .stButton > button:hover { border-color: #D32F2F; color: #D32F2F; }
     .stTextInput > div > div > input { background-color: #111; color: white; border: 1px solid #333; }
+    
+    /* ABAS CUSTOMIZADAS */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #111; border-radius: 5px; color: #888; }
+    .stTabs [aria-selected="true"] { background-color: #D32F2F; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -46,7 +51,6 @@ def init_db():
     if 'financas' not in st.session_state: st.session_state.financas = pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo'])
     if 'inventario' not in st.session_state: st.session_state.inventario = pd.DataFrame(columns=['Item', 'Local', 'Qtd', 'Setor'])
     
-    # Roteiros com correção de colunas antigas
     cols_rota = ['Origem', 'Destino', 'Km', 'Custo_Est', 'Status']
     if 'roteiros' not in st.session_state:
         st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
@@ -57,19 +61,20 @@ def init_db():
     if 'escort_chat' not in st.session_state: st.session_state.escort_chat = []
 init_db()
 
-# --- LISTA MESTRA DE CATEGORIAS ---
+# --- LISTA MESTRA DE CATEGORIAS (INPUT) ---
+# Mapeamento claro para garantir que caia na pasta certa
 CATEGORIAS = [
-    "GASTO: TECNOLOGIA/PESSOAL 💻",
-    "GASTO: FERRAMENTA OURIVESARIA 💍", 
-    "GASTO: FERRAMENTA MECÂNICA 🔧",
-    "GASTO: PEÇA KOMBI 🚐", 
-    "GASTO: SOLAR/CASA ⚡", 
-    "GASTO: VIDA (ALIMENTAÇÃO/OUTROS) 🍔", 
-    "GASTO: VIAGEM (GASOLINA/PEDÁGIO) ⛽",
+    "GASTO: TECNOLOGIA (Drone/PC/Câmera) 💻",
+    "GASTO: OURIVESARIA (Ferramentas/Metais) 💍", 
+    "GASTO: OFICINA (Ferramenta Mecânica) 🔧",
+    "GASTO: PEÇA KOMBI/SOLAR (Peças/Baterias) 🚐", 
+    "GASTO: PESSOAL (Roupas/Cuidados) 🎒",
+    "GASTO: VIDA (Alimentação/Mercado) 🍔", 
+    "GASTO: VIAGEM (Gasolina/Pedágio) ⛽",
     "RECEITA: VENDA/SERVIÇO 💰"
 ]
 
-# --- 5. LÓGICA INTELIGENTE ---
+# --- 5. LÓGICA INTELIGENTE (O ORGANIZADOR) ---
 def processar_dado(desc, valor, tipo, is_legacy):
     # Lança no Financeiro (se não for item antigo)
     if not is_legacy:
@@ -77,35 +82,34 @@ def processar_dado(desc, valor, tipo, is_legacy):
         novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [val_float], 'Tipo': [tipo]})
         st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
     
-    # Roteador de Inventário (Define para onde vai baseado no nome da categoria)
-    if "FERRAMENTA" in tipo or "PEÇA" in tipo or "TECNOLOGIA" in tipo or "SOLAR" in tipo:
-        if "OURIVES" in tipo: setor = "JOALHERIA"
-        elif "MECÂNICA" in tipo or "KOMBI" in tipo: setor = "MECÂNICA"
-        elif "TECNOLOGIA" in tipo: setor = "PESSOAL"
-        elif "SOLAR" in tipo: setor = "CASA/SOLAR"
-        else: setor = "GERAL" 
-        
+    # Roteador de Inventário (5 GAVETAS REAIS)
+    setor = None
+    if "OURIVESARIA" in tipo: setor = "OURIVESARIA"
+    elif "OFICINA" in tipo: setor = "OFICINA"
+    elif "KOMBI" in tipo or "SOLAR" in tipo: setor = "KOMBI"
+    elif "TECNOLOGIA" in tipo: setor = "TECNOLOGIA"
+    elif "PESSOAL" in tipo: setor = "PESSOAL"
+    
+    # Se encontrou um setor válido, salva no inventário
+    if setor:
         novo_inv = pd.DataFrame({'Item': [desc], 'Local': ['A Classificar'], 'Qtd': [1], 'Setor': [setor]})
         st.session_state.inventario = pd.concat([st.session_state.inventario, novo_inv], ignore_index=True)
-        
-        if is_legacy: return f"📦 {desc} guardado na pasta {setor}."
+        if is_legacy: return f"📦 {desc} arquivado na pasta {setor}."
         return f"✅ {desc} comprado e enviado para {setor}!"
+        
     return "✅ Registrado no Financeiro."
 
 # --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • SYSTEM V28 (FIXED)</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • ORGANIZER V29 (5 FOLDERS)</div>', unsafe_allow_html=True)
 
-# HUD (Painel Superior)
+# HUD
 c1, c2, c3 = st.columns(3)
 with c1: 
     hoje = date.today()
     if not st.session_state.agenda.empty:
-        # Tenta converter para datetime se der erro
-        try:
-            st.session_state.agenda['Data'] = pd.to_datetime(st.session_state.agenda['Data']).dt.date
+        try: st.session_state.agenda['Data'] = pd.to_datetime(st.session_state.agenda['Data']).dt.date
         except: pass
-        
         ag = st.session_state.agenda[(st.session_state.agenda['Data'] == hoje) & (st.session_state.agenda['Status'] == 'Pendente')]
         if not ag.empty: st.error(f"📅 {len(ag)} TAREFAS HOJE")
         else: st.success("LIVRE HOJE")
@@ -127,16 +131,14 @@ abas = st.tabs(["⚡ AÇÃO", "💰 COFRE", "⚒️ ARSENAL", "📅 AGENDA", "�
 # --- ABA 1: AÇÃO ---
 with abas[0]:
     st.markdown("### ⚡ LANÇAMENTO TÁTICO")
-    st.caption("Selecione a categoria correta para organizar o inventário automaticamente.")
+    st.caption("Escolha a categoria para o arquivamento automático.")
     with st.form("smart"):
         c1, c2 = st.columns([2, 1])
-        d = c1.text_input("Descrição")
+        d = c1.text_input("Descrição (Ex: Drone DJI, Lima Suiça)")
         v = c2.number_input("Valor (R$)", 0.0)
+        t = st.selectbox("Destino", CATEGORIAS)
         
-        # Menu Dropdown com as Categorias Oficiais
-        t = st.selectbox("Categoria / Destino", CATEGORIAS)
-        
-        is_legacy = st.checkbox("Já possuo este item (Apenas Inventário / Sem Gasto)")
+        is_legacy = st.checkbox("Já tenho (Apenas Inventário / Sem Gasto)")
         if st.form_submit_button("LANÇAR"):
             if "RECEITA" in t: pass 
             msg = processar_dado(d, v, t, is_legacy)
@@ -148,7 +150,6 @@ with abas[1]:
     st.markdown("### 💰 FLUXO DE CAIXA")
     if not st.session_state.financas.empty:
         try:
-            # Cálculos ignorando erros
             receitas = st.session_state.financas[st.session_state.financas['Tipo'].str.contains("RECEITA", na=False)]['Valor'].sum()
             despesas = st.session_state.financas[~st.session_state.financas['Tipo'].str.contains("RECEITA", na=False)]['Valor'].sum()
             saldo = receitas - despesas
@@ -158,53 +159,64 @@ with abas[1]:
             c_sal2.metric("Saídas", f"R$ {despesas:,.2f}")
             c_sal3.metric("Saldo Atual", f"R$ {saldo:,.2f}", delta=saldo)
             
-            st.markdown("#### 📝 REGISTROS (Edite a categoria abaixo)")
-            
-            # Tabela Editável com Dropdown
+            st.markdown("#### 📝 REGISTROS")
             df_editado = st.data_editor(
                 st.session_state.financas, 
                 num_rows="dynamic", 
                 use_container_width=True,
                 column_config={
-                    "Tipo": st.column_config.SelectboxColumn(
-                        "Categoria",
-                        width="medium",
-                        options=CATEGORIAS,
-                        required=True
-                    ),
+                    "Tipo": st.column_config.SelectboxColumn("Categoria", options=CATEGORIAS, required=True, width="medium"),
                     "Valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f")
                 }
             )
             if not df_editado.equals(st.session_state.financas):
                 st.session_state.financas = df_editado
                 st.rerun()
-        except:
-            st.error("Erro nos dados. Tente limpar linhas vazias.")
+        except: st.error("Erro nos dados.")
     else: st.info("Cofre vazio.")
 
-# --- ABA 3: ARSENAL ---
+# --- ABA 3: ARSENAL (5 GAVETAS REAIS) ---
 with abas[2]:
     st.markdown("### ⚒️ ARSENAL MAKER")
+    
+    # Criando as 5 Sub-Abas EXATAS que você pediu
+    sub_abas = st.tabs(["💍 OURIVESARIA", "🔧 OFICINA", "🚐 KOMBI", "💻 TECNOLOGIA", "🎒 PESSOAL"])
+    
+    # Lista de setores para filtrar
+    setores_map = ["OURIVESARIA", "OFICINA", "KOMBI", "TECNOLOGIA", "PESSOAL"]
+    
     if not st.session_state.inventario.empty:
-        st.markdown("#### 📦 Inventário Geral")
-        # Tabela Editável com Dropdown de Setor
-        df_inv_edit = st.data_editor(
-            st.session_state.inventario, 
-            num_rows="dynamic", 
-            use_container_width=True,
-            column_config={
-                "Setor": st.column_config.SelectboxColumn(
-                    "Pasta/Setor",
-                    width="medium",
-                    options=["JOALHERIA", "MECÂNICA", "PESSOAL", "CASA/SOLAR", "GERAL"],
-                    required=True
-                )
-            }
-        )
-        if not df_inv_edit.equals(st.session_state.inventario):
-            st.session_state.inventario = df_inv_edit
-            st.rerun()
-    else: st.info("Inventário vazio.")
+        # Loop para criar cada aba automaticamente
+        for i, setor_alvo in enumerate(setores_map):
+            with sub_abas[i]:
+                # Filtra apenas o que é daquela gaveta
+                df_setor = st.session_state.inventario[st.session_state.inventario['Setor'] == setor_alvo]
+                
+                if not df_setor.empty:
+                    # Mostra tabela editável
+                    df_setor_edit = st.data_editor(
+                        df_setor,
+                        key=f"editor_{setor_alvo}", # Chave única para não dar erro
+                        num_rows="dynamic",
+                        use_container_width=True,
+                        column_config={
+                            "Setor": st.column_config.SelectboxColumn(
+                                "Mover para",
+                                options=setores_map,
+                                required=True
+                            )
+                        }
+                    )
+                    
+                    # Se houve edição, precisamos atualizar o DataFrame principal (lógica ninja aqui)
+                    if not df_setor_edit.equals(df_setor):
+                        # Atualiza as linhas modificadas no DataFrame principal
+                        st.session_state.inventario.update(df_setor_edit)
+                        st.rerun()
+                else:
+                    st.info(f"Gaveta {setor_alvo} vazia.")
+    else:
+        st.info("Arsenal vazio.")
 
 # --- ABA 4: AGENDA ---
 with abas[3]:
@@ -294,8 +306,7 @@ with abas[5]:
                     "Status": st.column_config.SelectboxColumn("Status", options=["Planejado", "Em Rota", "Concluído"])
                 }
             )
-        except:
-            st.error("Erro ao gerar links.")
+        except: st.error("Erro ao gerar links.")
     else: st.info("Nenhuma rota traçada.")
 
 # --- ABA 7: ESCORT ---
@@ -324,4 +335,3 @@ with abas[7]:
         st.success("Salvo")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
-
