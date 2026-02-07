@@ -25,27 +25,25 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. SISTEMA DE SEGURANÇA (O PORTEIRO) ---
+# --- 3. SISTEMA DE SEGURANÇA ---
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
 def check_password():
-    # --- SUA SENHA AQUI ---
-    if st.session_state.password_input == "Iron6Maiden7":
+    if st.session_state.password_input == "fabslab2026":
         st.session_state.authenticated = True
         del st.session_state.password_input
     else:
-        st.error("⛔ ACESSO NEGADO: Senha Incorreta")
+        st.error("⛔ SENHA INCORRETA")
 
 if not st.session_state.authenticated:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
         st.markdown('<div class="header-sub">RESTRICTED AREA • AUTHORIZED PERSONNEL ONLY</div>', unsafe_allow_html=True)
         st.text_input("SENHA DE ACESSO", type="password", key="password_input", on_change=check_password)
-        st.caption("Dica: fabslab2026")
-    st.stop() # PÁRA TUDO AQUI SE NÃO TIVER SENHA
+    st.stop()
 
 # --- 4. DADOS ---
 def init_db():
@@ -61,34 +59,37 @@ init_db()
 
 # --- 5. LÓGICA INTELIGENTE ---
 def processar_dado(desc, valor, tipo):
-    # Lança Gasto
     novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [valor], 'Tipo': [tipo]})
     st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
     
-    # Lança Item no Inventário (Incluindo Pessoal/Tech)
     if "FERRAMENTA" in tipo or "PEÇA" in tipo or "TECNOLOGIA" in tipo:
         if "OURIVES" in tipo: setor = "JOALHERIA"
         elif "MECÂNICA" in tipo or "KOMBI" in tipo: setor = "MECÂNICA"
-        elif "TECNOLOGIA" in tipo: setor = "PESSOAL" # NOVA CATEGORIA
-        else: setor = "GERAL"
-            
+        elif "TECNOLOGIA" in tipo: setor = "PESSOAL"
+        else: setor = "GERAL" 
         novo_inv = pd.DataFrame({'Item': [desc], 'Local': ['A Classificar'], 'Qtd': [1], 'Setor': [setor]})
         st.session_state.inventario = pd.concat([st.session_state.inventario, novo_inv], ignore_index=True)
         return f"✅ {desc} adicionado ao Arsenal ({setor})!"
         
     return "✅ Gasto Registrado."
 
-# --- 6. HEADER (SÓ APARECE SE TIVER SENHA) ---
+# --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • SECURE SYSTEM V20</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • AGENDA TÁTICA V21</div>', unsafe_allow_html=True)
 
 # HUD
 c1, c2, c3 = st.columns(3)
 with c1: 
     hoje = date.today()
-    ag = st.session_state.agenda[(st.session_state.agenda['Data'] == hoje) & (st.session_state.agenda['Status'] == 'Pendente')]
-    if not ag.empty: st.error(f"📅 {len(ag)} TAREFAS")
-    else: st.success("LIVRE")
+    # Converte para datetime.date para garantir a comparação
+    if not st.session_state.agenda.empty:
+        # Garante que a coluna Data é do tipo date
+        st.session_state.agenda['Data'] = pd.to_datetime(st.session_state.agenda['Data']).dt.date
+        ag = st.session_state.agenda[(st.session_state.agenda['Data'] == hoje) & (st.session_state.agenda['Status'] == 'Pendente')]
+        if not ag.empty: st.error(f"📅 {len(ag)} TAREFAS HOJE")
+        else: st.success("LIVRE HOJE")
+    else: st.success("LIVRE HOJE")
+
 with c2:
     km_rest = (st.session_state.dados_kombi['km_oleo'] + 5000) - st.session_state.dados_kombi['km_atual']
     if km_rest < 0: st.error(f"🔧 ÓLEO VENCIDO")
@@ -101,73 +102,92 @@ with c3:
 st.markdown("---")
 
 # ABAS
-abas = st.tabs(["⚡ AÇÃO", "⚒️ ARSENAL", "🐴 ESCORT", "🔋 ENERGIA", "📅 AGENDA", "💰 COFRE", "📁 DOCS", "🌎 ROTA"])
+abas = st.tabs(["⚡ AÇÃO", "📅 AGENDA", "⚒️ ARSENAL", "🐴 ESCORT", "🔋 ENERGIA", "💰 COFRE", "📁 DOCS", "🌎 ROTA"])
 
 # --- ABA 1: AÇÃO RÁPIDA ---
 with abas[0]:
     st.markdown("### ⚡ LANÇAMENTO TÁTICO")
     with st.form("smart"):
         c1, c2 = st.columns([2, 1])
-        d = c1.text_input("Descrição (Ex: MacBook, Drone, Alicate)")
+        d = c1.text_input("Descrição")
         v = c2.number_input("Valor (R$)", 0.0)
-        
-        # CATEGORIAS ATUALIZADAS
         t = st.selectbox("Categoria", [
-            "GASTO: TECNOLOGIA/PESSOAL 💻", # NOVO!
+            "GASTO: TECNOLOGIA/PESSOAL 💻",
             "GASTO: FERRAMENTA OURIVESARIA 💍", 
             "GASTO: FERRAMENTA MECÂNICA 🔧",
             "GASTO: PEÇA KOMBI 🚐", 
             "GASTO: SOLAR/CASA ⚡", 
             "GASTO: VIDA 🍔", 
-            "GASTO: VIAGEM ⛽", 
-            "AGENDA: EVENTO 📅"
+            "GASTO: VIAGEM ⛽"
         ])
         
         if st.form_submit_button("EXECUTAR"):
-            if "AGENDA" in t:
-                n = pd.DataFrame({'Data': [date.today()], 'Hora': ['09:00'], 'Evento': [d], 'Status': ['Pendente']})
-                st.session_state.agenda = pd.concat([st.session_state.agenda, n], ignore_index=True)
-                st.success("Agendado")
-            else:
-                msg = processar_dado(d, v, t)
-                st.success(msg)
+            msg = processar_dado(d, v, t)
+            st.success(msg)
             st.rerun()
 
-# --- ABA 2: ARSENAL (3 COLUNAS AGORA) ---
+# --- ABA 2: AGENDA (AGORA COM AGENDAMENTO REAL) ---
 with abas[1]:
-    st.markdown("### ⚒️ ARSENAL MAKER & PESSOAL")
+    st.markdown("### 📅 CRONOGRAMA DE MISSÕES")
     
-    col_pes, col_joia, col_mec = st.columns(3)
-    
-    with col_pes:
-        st.markdown("#### 💻 PESSOAL/TECH")
-        if not st.session_state.inventario.empty:
-            df_pes = st.session_state.inventario[st.session_state.inventario['Setor'] == 'PESSOAL']
-            if not df_pes.empty:
-                st.dataframe(df_pes[['Item', 'Local']], use_container_width=True, hide_index=True)
-            else: st.info("Vazio.")
-        else: st.info("Vazio.")
+    # Formulário de Agendamento
+    with st.expander("➕ NOVA MISSÃO (Agendar)", expanded=False):
+        with st.form("nova_missao"):
+            c_data, c_hora = st.columns(2)
+            data_task = c_data.date_input("Data", date.today())
+            hora_task = c_hora.time_input("Hora", time(9, 0))
+            task_desc = st.text_input("Missão/Compromisso")
+            
+            if st.form_submit_button("AGENDAR"):
+                n = pd.DataFrame({'Data': [data_task], 'Hora': [hora_task.strftime('%H:%M')], 'Evento': [task_desc], 'Status': ['Pendente']})
+                st.session_state.agenda = pd.concat([st.session_state.agenda, n], ignore_index=True)
+                st.success("✅ Missão Confirmada!")
+                st.rerun()
 
-    with col_joia:
+    # Lista de Tarefas
+    if not st.session_state.agenda.empty:
+        # Ordenar por data
+        df_agenda = st.session_state.agenda.sort_values(by=['Data', 'Hora'])
+        
+        st.markdown("#### ⏳ PENDENTES")
+        for i, row in df_agenda.iterrows():
+            if row['Status'] == 'Pendente':
+                col_check, col_info = st.columns([1, 6])
+                # Checkbox marca como concluído
+                if col_check.checkbox("✅", key=f"check_{i}"):
+                    st.session_state.agenda.at[i, 'Status'] = 'Concluído'
+                    st.rerun()
+                col_info.markdown(f"**{row['Data'].strftime('%d/%m')} às {row['Hora']}** | {row['Evento']}")
+        
+        st.markdown("---")
+        st.markdown("#### ✅ CONCLUÍDAS")
+        for i, row in df_agenda.iterrows():
+            if row['Status'] == 'Concluído':
+                st.caption(f"~~{row['Data'].strftime('%d/%m')} - {row['Evento']}~~")
+
+# --- ABA 3: ARSENAL ---
+with abas[2]:
+    st.markdown("### ⚒️ ARSENAL MAKER & PESSOAL")
+    c_p, c_j, c_m = st.columns(3)
+    
+    with c_p:
+        st.markdown("#### 💻 PESSOAL")
+        if not st.session_state.inventario.empty:
+            df = st.session_state.inventario[st.session_state.inventario['Setor'] == 'PESSOAL']
+            if not df.empty: st.dataframe(df[['Item']], use_container_width=True, hide_index=True)
+    with c_j:
         st.markdown("#### 💎 ATELIÊ")
         if not st.session_state.inventario.empty:
-            df_joia = st.session_state.inventario[st.session_state.inventario['Setor'] == 'JOALHERIA']
-            if not df_joia.empty:
-                st.dataframe(df_joia[['Item', 'Local']], use_container_width=True, hide_index=True)
-            else: st.info("Vazio.")
-        else: st.info("Vazio.")
-
-    with col_mec:
+            df = st.session_state.inventario[st.session_state.inventario['Setor'] == 'JOALHERIA']
+            if not df.empty: st.dataframe(df[['Item']], use_container_width=True, hide_index=True)
+    with c_m:
         st.markdown("#### 🔧 OFICINA")
         if not st.session_state.inventario.empty:
-            df_mec = st.session_state.inventario[st.session_state.inventario['Setor'] == 'MECÂNICA']
-            if not df_mec.empty:
-                st.dataframe(df_mec[['Item', 'Local']], use_container_width=True, hide_index=True)
-            else: st.info("Vazio.")
-        else: st.info("Vazio.")
+            df = st.session_state.inventario[st.session_state.inventario['Setor'] == 'MECÂNICA']
+            if not df.empty: st.dataframe(df[['Item']], use_container_width=True, hide_index=True)
 
-# --- ABA 3: ESCORT ---
-with abas[2]:
+# --- ABA 4: ESCORT ---
+with abas[3]:
     c_esc1, c_esc2 = st.columns([2, 1])
     with c_esc1:
         st.markdown("### 📡 COMUNICAÇÃO")
@@ -187,8 +207,8 @@ with abas[2]:
         st.info("🔒 PROTEGIDO")
         st.link_button("GEMINI CLOUD ☁️", "https://gemini.google.com/")
 
-# --- ABA 4: ENERGIA & MECÂNICA ---
-with abas[3]:
+# --- ABA 5: ENERGIA & MECÂNICA ---
+with abas[4]:
     col_carro, col_casa = st.columns(2)
     with col_carro:
         st.markdown("### 🚐 MOTOR")
@@ -208,13 +228,6 @@ with abas[3]:
         st.markdown("### ⚡ CASA")
         st.warning("🔋 ESTACIONÁRIA: **FREEDOM 115Ah**")
         st.text_area("Log Elétrica", height=100)
-
-# --- ABA 5: AGENDA ---
-with abas[4]:
-    st.markdown("### 📅 MISSÕES")
-    if not st.session_state.agenda.empty:
-        for i, row in st.session_state.agenda.iterrows():
-            st.checkbox(f"{row['Evento']}", value=(row['Status']=='Concluído'), key=i)
 
 # --- ABA 6: COFRE ---
 with abas[5]:
@@ -246,4 +259,5 @@ with abas[7]:
             st.rerun()
         st.dataframe(st.session_state.roteiros, use_container_width=True)
         
+
 
