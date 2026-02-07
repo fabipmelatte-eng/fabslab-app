@@ -25,7 +25,7 @@ st.markdown("""
 # --- 3. SISTEMA DE SEGURANÇA ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 def check_password():
-    if st.session_state.password_input == "fabslab2026":
+    if st.session_state.password_input == "Iron6Maiden7":
         st.session_state.authenticated = True
         del st.session_state.password_input
     else: st.error("⛔ SENHA INCORRETA")
@@ -53,7 +53,9 @@ init_db()
 def processar_dado(desc, valor, tipo, is_legacy):
     # Só lança no financeiro se NÃO for item antigo (legacy)
     if not is_legacy:
-        novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [valor], 'Tipo': [tipo]})
+        # Garante que o valor é float para evitar erros de soma
+        val_float = float(valor)
+        novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [val_float], 'Tipo': [tipo]})
         st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
     
     # Lança no Inventário
@@ -72,7 +74,7 @@ def processar_dado(desc, valor, tipo, is_legacy):
 
 # --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • FINANCEIRO V22</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • SYSTEM V23 (STABLE)</div>', unsafe_allow_html=True)
 
 # HUD
 c1, c2, c3 = st.columns(3)
@@ -113,54 +115,51 @@ with abas[0]:
             "GASTO: SOLAR/CASA ⚡", 
             "GASTO: VIDA 🍔", 
             "GASTO: VIAGEM ⛽",
-            "RECEITA: VENDA/SERVIÇO 💰" # Nova Categoria de Entrada
+            "RECEITA: VENDA/SERVIÇO 💰"
         ])
         
-        # Checkbox para Itens que você já tem
         is_legacy = st.checkbox("Já possuo este item (Apenas Inventário / Sem Gasto)")
         
         if st.form_submit_button("EXECUTAR"):
-            if "RECEITA" in t:
-                # Receita entra positiva, Gastos entram como referência de valor
-                pass 
-            
+            if "RECEITA" in t: pass 
             msg = processar_dado(d, v, t, is_legacy)
             st.success(msg)
             st.rerun()
 
-# --- ABA 2: COFRE (EDITÁVEL) ---
+# --- ABA 2: COFRE (CORRIGIDO) ---
 with abas[1]:
     st.markdown("### 💰 FLUXO DE CAIXA")
     
     if not st.session_state.financas.empty:
-        # Separa Receitas e Despesas para cálculo
-        receitas = st.session_state.financas[st.session_state.financas['Tipo'].str.contains("RECEITA")]['Valor'].sum()
-        despesas = st.session_state.financas[~st.session_state.financas['Tipo'].str.contains("RECEITA")]['Valor'].sum()
-        saldo = receitas - despesas
-        
-        c_sal1, c_sal2, c_sal3 = st.columns(3)
-        c_sal1.metric("Entradas", f"R$ {receitas:,.2f}")
-        c_sal2.metric("Saídas", f"R$ {despesas:,.2f}")
-        c_sal3.metric("Saldo Atual", f"R$ {saldo:,.2f}", delta=saldo)
-        
-        st.markdown("#### 📝 REGISTROS (Edite direto na tabela)")
-        # EDITOR DE DADOS: Permite alterar valores e excluir linhas
-        df_editado = st.data_editor(st.session_state.financas, num_rows="dynamic", use_container_width=True)
-        
-        if not df_editado.equals(st.session_state.financas):
-            st.session_state.financas = df_editado
-            st.rerun()
+        # CORREÇÃO DO ERRO: Adicionado 'na=False' para ignorar linhas vazias/sujas
+        try:
+            receitas = st.session_state.financas[st.session_state.financas['Tipo'].str.contains("RECEITA", na=False)]['Valor'].sum()
+            despesas = st.session_state.financas[~st.session_state.financas['Tipo'].str.contains("RECEITA", na=False)]['Valor'].sum()
+            saldo = receitas - despesas
+            
+            c_sal1, c_sal2, c_sal3 = st.columns(3)
+            c_sal1.metric("Entradas", f"R$ {receitas:,.2f}")
+            c_sal2.metric("Saídas", f"R$ {despesas:,.2f}")
+            c_sal3.metric("Saldo Atual", f"R$ {saldo:,.2f}", delta=saldo)
+            
+            st.markdown("#### 📝 REGISTROS (Edite direto na tabela)")
+            df_editado = st.data_editor(st.session_state.financas, num_rows="dynamic", use_container_width=True)
+            
+            if not df_editado.equals(st.session_state.financas):
+                st.session_state.financas = df_editado
+                st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao calcular: {e}")
+            st.warning("Dica: Tente apagar as linhas vazias na tabela abaixo.")
+            st.data_editor(st.session_state.financas, key="fin_error_edit", num_rows="dynamic")
     else:
         st.info("Cofre vazio.")
 
-# --- ABA 3: ARSENAL (EDITÁVEL) ---
+# --- ABA 3: ARSENAL ---
 with abas[2]:
-    st.markdown("### ⚒️ ARSENAL MAKER (Edite locais e quantidades)")
-    
+    st.markdown("### ⚒️ ARSENAL MAKER")
     if not st.session_state.inventario.empty:
-        # EDITOR DE DADOS COMPLETO
         df_inv_edit = st.data_editor(st.session_state.inventario, num_rows="dynamic", use_container_width=True)
-        
         if not df_inv_edit.equals(st.session_state.inventario):
             st.session_state.inventario = df_inv_edit
             st.rerun()
@@ -245,7 +244,7 @@ with abas[7]:
             st.session_state.roteiros = pd.concat([st.session_state.roteiros, n], ignore_index=True)
             st.rerun()
         st.dataframe(st.session_state.roteiros, use_container_width=True)
-        
+
 
 
 
