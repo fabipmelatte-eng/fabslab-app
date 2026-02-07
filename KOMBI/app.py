@@ -38,14 +38,23 @@ if not st.session_state.authenticated:
         st.text_input("SENHA DE ACESSO", type="password", key="password_input", on_change=check_password)
     st.stop()
 
-# --- 4. DADOS ---
+# --- 4. DADOS (COM CORREÇÃO AUTOMÁTICA) ---
 def init_db():
     if 'agenda' not in st.session_state: st.session_state.agenda = pd.DataFrame(columns=['Data', 'Hora', 'Evento', 'Status'])
     if 'saude' not in st.session_state: st.session_state.saude = {'agua_copos': 0, 'comida_ok': False, 'meds_tomados': False}
     if 'dados_kombi' not in st.session_state: st.session_state.dados_kombi = {'km_atual': 150000, 'km_oleo': 145000, 'consumo_medio': 9.0}
     if 'financas' not in st.session_state: st.session_state.financas = pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo'])
     if 'inventario' not in st.session_state: st.session_state.inventario = pd.DataFrame(columns=['Item', 'Local', 'Qtd', 'Setor'])
-    if 'roteiros' not in st.session_state: st.session_state.roteiros = pd.DataFrame(columns=['Origem', 'Destino', 'Km', 'Custo_Est', 'Status'])
+    
+    # --- CORREÇÃO DE ERRO DE MEMÓRIA (ROTEIROS) ---
+    cols_rota = ['Origem', 'Destino', 'Km', 'Custo_Est', 'Status']
+    if 'roteiros' not in st.session_state:
+        st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
+    else:
+        # Se a tabela existe mas é velha (sem Origem), a gente recria
+        if 'Origem' not in st.session_state.roteiros.columns:
+            st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
+
     if 'escort_chat' not in st.session_state: st.session_state.escort_chat = []
 init_db()
 
@@ -69,7 +78,7 @@ def processar_dado(desc, valor, tipo, is_legacy):
 
 # --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • GPS UPLINK V25</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • MAPS FIXED V26</div>', unsafe_allow_html=True)
 
 # HUD
 c1, c2, c3 = st.columns(3)
@@ -200,13 +209,14 @@ with abas[5]:
     with st.expander("➕ TRAÇAR NOVA ROTA", expanded=True):
         with st.form("nova_rota"):
             c1, c2 = st.columns(2)
-            origem = c1.text_input("Origem (Cidade/Endereço)")
-            destino = c2.text_input("Destino")
+            origem = c1.text_input("Origem (Ex: Curitiba, PR)")
+            destino = c2.text_input("Destino (Ex: Florianópolis, SC)")
             km_rota = st.number_input("Distância (Km)", min_value=1)
             
-            # LINK DINÂMICO
-            link_maps = f"https://www.google.com/maps/dir/?api=1&origin={origem}&destination={destino}"
-            st.link_button("🗺️ VER NO MAPS AGORA", link_maps)
+            # Link para testar antes de salvar
+            if origem and destino:
+                link_test = f"https://www.google.com/maps/dir/?api=1&origin={origem}&destination={destino}"
+                st.link_button("🗺️ TESTAR NO MAPS", link_test)
             
             custo_est = (km_rota / 9.0) * 6.10
             st.caption(f"Custo Estimado: R$ {custo_est:.2f}")
@@ -226,25 +236,29 @@ with abas[5]:
         # Cria cópia para exibição com link
         df_display = st.session_state.roteiros.copy()
         
-        # Gera os links do Maps para todas as rotas
-        df_display["Navegar"] = df_display.apply(
-            lambda x: f"https://www.google.com/maps/dir/?api=1&origin={x['Origem']}&destination={x['Destino']}", axis=1
-        )
-        
-        # Exibe com botão clicável
-        st.data_editor(
-            df_display, 
-            num_rows="dynamic", 
-            use_container_width=True,
-            column_config={
-                "Navegar": st.column_config.LinkColumn(
-                    "Link Maps", display_text="🗺️ Ir", help="Clique para abrir no Google Maps"
-                ),
-                "Custo_Est": st.column_config.NumberColumn("Custo (R$)", format="R$ %.2f"),
-                "Km": st.column_config.NumberColumn("Distância", format="%d km"),
-                "Status": st.column_config.SelectboxColumn("Status", options=["Planejado", "Em Rota", "Concluído"])
-            }
-        )
+        # GERAÇÃO SEGURA DO LINK (EVITA O ERRO)
+        try:
+            df_display["Navegar"] = df_display.apply(
+                lambda x: f"https://www.google.com/maps/dir/?api=1&origin={x['Origem']}&destination={x['Destino']}", axis=1
+            )
+            
+            # Exibe com botão clicável
+            st.data_editor(
+                df_display, 
+                num_rows="dynamic", 
+                use_container_width=True,
+                column_config={
+                    "Navegar": st.column_config.LinkColumn(
+                        "Link Maps", display_text="🗺️ Ir", help="Clique para abrir no Google Maps"
+                    ),
+                    "Custo_Est": st.column_config.NumberColumn("Custo (R$)", format="R$ %.2f"),
+                    "Km": st.column_config.NumberColumn("Distância", format="%d km"),
+                    "Status": st.column_config.SelectboxColumn("Status", options=["Planejado", "Em Rota", "Concluído"])
+                }
+            )
+        except Exception as e:
+            st.error("Erro ao gerar links. Tente recarregar a página.")
+            st.write(st.session_state.roteiros)
     else: st.info("Nenhuma rota traçada.")
 
 # --- ABA 7: ESCORT ---
@@ -273,6 +287,7 @@ with abas[7]:
         st.success("Salvo")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
 
 
 
