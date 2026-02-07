@@ -92,7 +92,7 @@ def processar_dado(desc, valor, tipo, is_legacy):
 
 # --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • ORGANIZER V27</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • ARSENAL V28 (PASTAS)</div>', unsafe_allow_html=True)
 
 # HUD
 c1, c2, c3 = st.columns(3)
@@ -127,7 +127,6 @@ with abas[0]:
         d = c1.text_input("Descrição do Item/Evento")
         v = c2.number_input("Valor (R$)", 0.0)
         
-        # USA A LISTA MESTRA
         t = st.selectbox("Onde devo guardar isso?", CATEGORIAS)
         
         is_legacy = st.checkbox("Já possuo este item (Apenas Inventário / Sem Gasto)")
@@ -137,7 +136,7 @@ with abas[0]:
             st.success(msg)
             st.rerun()
 
-# --- ABA 2: COFRE (COM DROPDOWN NA TABELA) ---
+# --- ABA 2: COFRE ---
 with abas[1]:
     st.markdown("### 💰 FLUXO DE CAIXA")
     if not st.session_state.financas.empty:
@@ -151,19 +150,14 @@ with abas[1]:
             c_sal3.metric("Saldo Atual", f"R$ {saldo:,.2f}", delta=saldo)
             
             st.markdown("#### 📝 REGISTROS (Edite a Categoria direto aqui 👇)")
-            
-            # CONFIGURAÇÃO PODEROSA DA TABELA
             df_editado = st.data_editor(
                 st.session_state.financas, 
                 num_rows="dynamic", 
                 use_container_width=True,
                 column_config={
                     "Tipo": st.column_config.SelectboxColumn(
-                        "Categoria",
-                        help="Mude a categoria se errou",
-                        width="medium",
-                        options=CATEGORIAS, # AQUI ESTÁ O SEGREDO
-                        required=True
+                        "Categoria", help="Mude a categoria se errou", width="medium",
+                        options=CATEGORIAS, required=True
                     ),
                     "Valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f")
                 }
@@ -174,29 +168,56 @@ with abas[1]:
         except: st.error("Erro nos dados.")
     else: st.info("Cofre vazio.")
 
-# --- ABA 3: ARSENAL (COM DROPDOWN NA TABELA) ---
+# --- ABA 3: ARSENAL (COM PASTAS/ABAS INTERNAS) ---
 with abas[2]:
     st.markdown("### ⚒️ ARSENAL MAKER")
+    
+    # CRIAÇÃO DAS SUB-ABAS (PASTAS)
+    pastas = st.tabs(["💎 JOALHERIA", "🔧 MECÂNICA", "💻 PESSOAL", "⚡ CASA/SOLAR", "📋 GERENCIADOR GERAL"])
+    
     if not st.session_state.inventario.empty:
-        
-        # CONFIGURAÇÃO PODEROSA DA TABELA DE INVENTÁRIO
-        df_inv_edit = st.data_editor(
-            st.session_state.inventario, 
-            num_rows="dynamic", 
-            use_container_width=True,
-            column_config={
-                "Setor": st.column_config.SelectboxColumn(
-                    "Pasta/Setor",
-                    help="Mova o item de pasta",
-                    width="medium",
-                    options=["JOALHERIA", "MECÂNICA", "PESSOAL", "CASA/SOLAR", "GERAL"],
-                    required=True
-                )
-            }
-        )
-        if not df_inv_edit.equals(st.session_state.inventario):
-            st.session_state.inventario = df_inv_edit
-            st.rerun()
+        # 1. JOALHERIA
+        with pastas[0]:
+            df_j = st.session_state.inventario[st.session_state.inventario['Setor'] == 'JOALHERIA']
+            if not df_j.empty: st.dataframe(df_j, use_container_width=True, hide_index=True)
+            else: st.info("Pasta Joalheria vazia.")
+            
+        # 2. MECÂNICA
+        with pastas[1]:
+            df_m = st.session_state.inventario[st.session_state.inventario['Setor'] == 'MECÂNICA']
+            if not df_m.empty: st.dataframe(df_m, use_container_width=True, hide_index=True)
+            else: st.info("Pasta Mecânica vazia.")
+            
+        # 3. PESSOAL
+        with pastas[2]:
+            df_p = st.session_state.inventario[st.session_state.inventario['Setor'] == 'PESSOAL']
+            if not df_p.empty: st.dataframe(df_p, use_container_width=True, hide_index=True)
+            else: st.info("Pasta Pessoal vazia.")
+
+        # 4. CASA/SOLAR
+        with pastas[3]:
+            df_c = st.session_state.inventario[st.session_state.inventario['Setor'] == 'CASA/SOLAR']
+            if not df_c.empty: st.dataframe(df_c, use_container_width=True, hide_index=True)
+            else: st.info("Pasta Casa/Solar vazia.")
+
+        # 5. GERENCIADOR (Onde edita tudo)
+        with pastas[4]:
+            st.warning("⚠️ MODO DE EDIÇÃO: Aqui você pode mudar itens de pasta ou corrigir nomes.")
+            df_inv_edit = st.data_editor(
+                st.session_state.inventario, 
+                num_rows="dynamic", 
+                use_container_width=True,
+                column_config={
+                    "Setor": st.column_config.SelectboxColumn(
+                        "Pasta/Setor", help="Mova o item de pasta", width="medium",
+                        options=["JOALHERIA", "MECÂNICA", "PESSOAL", "CASA/SOLAR", "GERAL"],
+                        required=True
+                    )
+                }
+            )
+            if not df_inv_edit.equals(st.session_state.inventario):
+                st.session_state.inventario = df_inv_edit
+                st.rerun()
     else: st.info("Inventário vazio.")
 
 # --- ABA 4: AGENDA ---
@@ -318,6 +339,7 @@ with abas[7]:
         st.success("Salvo")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
 
 
 
