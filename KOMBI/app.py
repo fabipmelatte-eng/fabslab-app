@@ -2,68 +2,59 @@ import streamlit as st
 import pandas as pd
 from datetime import date, datetime, time
 import os
-import socket
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="FAB'S LAB.",
-    page_icon="🔥",
+    page_icon="🐴",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # --- 2. CONFIGURAÇÃO DE ARQUIVOS ---
+# Ajuste para funcionar bem na nuvem (cria a pasta se não existir)
 PASTA_DOCS = "meus_documentos"
-if not os.path.exists(PASTA_DOCS): os.makedirs(PASTA_DOCS)
+if not os.path.exists(PASTA_DOCS): 
+    os.makedirs(PASTA_DOCS)
 
-# --- 3. DESIGN SYSTEM (VISUAL PREMIUM) ---
+# --- 3. DESIGN SYSTEM ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Mono:wght@300;700&display=swap');
     
     .stApp { background-color: #050505; color: #e0e0e0; }
     
-    /* CABEÇALHO */
     .header-title {
         font-family: 'Bebas Neue', sans-serif;
-        font-size: 85px;
-        background: -webkit-linear-gradient(#fff, #999);
+        font-size: 60px; /* Ajustei um pouco para mobile */
+        background: -webkit-linear-gradient(#fff, #777);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
         margin: 0;
-        letter-spacing: 4px;
-        text-shadow: 0px 0px 30px rgba(255, 255, 255, 0.15);
+        letter-spacing: 3px;
     }
     .header-sub {
         font-family: 'Roboto Mono', monospace;
         color: #D32F2F;
         text-align: center;
-        font-size: 14px;
+        font-size: 12px;
         border-bottom: 1px solid #333;
         padding-bottom: 20px;
         margin-bottom: 30px;
         text-transform: uppercase;
         letter-spacing: 2px;
+        font-weight: bold;
     }
     
-    /* CARDS */
-    .glass-card {
-        background: rgba(20, 20, 20, 0.6);
-        border: 1px solid #333;
-        padding: 20px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        backdrop-filter: blur(10px);
-    }
-    .bifao-box {
+    .escort-card {
         border-left: 4px solid #D32F2F;
-        background-color: #1a0505;
-        padding: 20px;
-        border-radius: 0 8px 8px 0;
+        background-color: #111;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 0 10px 10px 0;
     }
     
-    /* BOTÕES */
     .stButton > button {
         border: 1px solid #444;
         color: #ccc;
@@ -78,23 +69,13 @@ st.markdown("""
         border-color: #D32F2F;
         color: #D32F2F;
         background: #1a1a1a;
-        box-shadow: 0 0 15px rgba(211, 47, 47, 0.2);
-    }
-    .stLinkButton > a {
-        background-color: #D32F2F !important;
-        color: white !important;
-        font-weight: bold;
-        text-align: center;
-        border-radius: 5px;
-        border: none;
     }
     
-    /* INPUTS */
     .stTextInput > div > div > input { background-color: #111; color: white; border: 1px solid #333; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. DADOS & MEMÓRIA ---
+# --- 4. DADOS ---
 def init_db():
     if 'agenda' not in st.session_state: st.session_state.agenda = pd.DataFrame(columns=['Data', 'Hora', 'Evento', 'Status'])
     if 'saude' not in st.session_state: st.session_state.saude = {'agua_copos': 0, 'comida_ok': False, 'meds_tomados': False}
@@ -102,11 +83,11 @@ def init_db():
     if 'financas' not in st.session_state: st.session_state.financas = pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo'])
     if 'inventario' not in st.session_state: st.session_state.inventario = pd.DataFrame(columns=['Item', 'Local', 'Qtd', 'Setor'])
     if 'roteiros' not in st.session_state: st.session_state.roteiros = pd.DataFrame(columns=['Destino', 'Pais', 'Status'])
-    if 'chat_local' not in st.session_state: st.session_state.chat_local = [] # Memória do Chat Offline
+    if 'escort_chat' not in st.session_state: st.session_state.escort_chat = []
 
 init_db()
 
-# --- 5. INTELIGÊNCIA ---
+# --- 5. LÓGICA ---
 def processar_dado(desc, valor, tipo):
     novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [valor], 'Tipo': [tipo]})
     st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
@@ -114,124 +95,148 @@ def processar_dado(desc, valor, tipo):
         setor = "MECÂNICA" if "KOMBI" in tipo else "JOALHERIA"
         novo_inv = pd.DataFrame({'Item': [desc], 'Local': ['A Classificar'], 'Qtd': [1], 'Setor': [setor]})
         st.session_state.inventario = pd.concat([st.session_state.inventario, novo_inv], ignore_index=True)
-        return "✅ Estoque + Financeiro Atualizados!"
-    return "✅ Gasto Registrado."
+        return "✅ Escolta confirma: Item estocado e pago."
+    return "✅ Escolta confirma: Gasto registrado."
 
-# --- 6. RENDERIZAÇÃO ---
+# --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 FLEX (2007) • SYSTEM V15</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI STANDARD 1.4 (2007) • CLOUD SYSTEM</div>', unsafe_allow_html=True)
 
-# ABAS (EU ESTOU AQUI NA PRIMEIRA!)
-abas = st.tabs(["🤖 BIFÃO", "⚡ AÇÃO", "🧠 CÓRTEX", "🚐 SISTEMA", "📅 AGENDA", "💰 COFRE", "🌎 JORNADA"])
+# HUD
+c1, c2, c3 = st.columns(3)
+with c1: 
+    hoje = date.today()
+    ag = st.session_state.agenda[(st.session_state.agenda['Data'] == hoje) & (st.session_state.agenda['Status'] == 'Pendente')]
+    if not ag.empty: st.error(f"📅 {len(ag)} MISSÕES")
+    else: st.success("LIVRE")
+with c2:
+    km_rest = (st.session_state.dados_kombi['km_oleo'] + 5000) - st.session_state.dados_kombi['km_atual']
+    if km_rest < 0: st.error(f"🔧 ÓLEO VENCIDO")
+    else: st.info(f"MOTOR OK ({km_rest}km)")
+with c3:
+    if not st.session_state.saude['comida_ok']: st.warning("🍎 COMER")
+    elif not st.session_state.saude['meds_tomados']: st.warning("💊 REMÉDIO")
+    else: st.success("BIO OK")
 
-# --- ABA 1: BIFÃO (EU!) ---
+st.markdown("---")
+
+# ABAS
+abas = st.tabs(["🐴 ESCORT", "⚡ AÇÃO", "🧠 CÓRTEX", "🚐 KOMBI", "📅 AGENDA", "💰 COFRE", "📁 DOCS", "🌎 ROTA"])
+
+# --- ABA 1: ESCORT ---
 with abas[0]:
-    c_chat, c_info = st.columns([2, 1])
-    
-    with c_chat:
-        st.markdown("### 💬 DIÁRIO DE BORDO (OFFLINE)")
-        st.caption("Fale comigo aqui. Eu guardo suas ideias no PC.")
+    c_esc1, c_esc2 = st.columns([2, 1])
+    with c_esc1:
+        st.markdown("### 📡 COMUNICAÇÃO")
+        if st.session_state.escort_chat:
+            for msg in st.session_state.escort_chat:
+                role = "FABI" if msg["role"] == "user" else "BIFÃO"
+                cor = "#D32F2F" if role != "FABI" else "#555"
+                st.markdown(f"""<div class="escort-card" style="border-color:{cor};"><small>{role}</small><br>{msg['content']}</div>""", unsafe_allow_html=True)
         
-        # Histórico
-        for msg in st.session_state.chat_local:
-            role = "FABI" if msg["role"] == "user" else "BIFÃO"
-            st.markdown(f"**{role}:** {msg['content']}")
-            st.markdown("---")
-            
-        prompt = st.chat_input("No que você está pensando, Fabi?")
-        if prompt:
-            st.session_state.chat_local.append({"role": "user", "content": prompt})
-            st.session_state.chat_local.append({"role": "assistant", "content": "Anotado! Se precisar de análise complexa, clica no botão ao lado para ir pra nuvem."})
-            st.experimental_rerun()
-            
-    with c_info:
-        st.markdown('<div class="bifao-box">', unsafe_allow_html=True)
-        st.markdown("### 🧠 CONEXÃO NUVEM")
-        st.write("Para análises profundas, roteiros ou dúvidas técnicas, me chame na frequência principal:")
-        st.link_button("CHAMAR BIFÃO (GEMINI) 🚀", "https://gemini.google.com/app")
-        st.markdown("---")
-        st.info("Status do Sistema: OPERANTE")
-        st.markdown('</div>', unsafe_allow_html=True)
+        user_input = st.chat_input("Comando...")
+        if user_input:
+            st.session_state.escort_chat.append({"role": "user", "content": user_input})
+            resp = "Cópia. Mensagem registrada. Verifique sistemas vitais."
+            st.session_state.escort_chat.append({"role": "assistant", "content": resp})
+            st.rerun() # <--- AQUI ESTÁ A CORREÇÃO (Era experimental_rerun)
 
-# --- ABA 2: AÇÃO RÁPIDA ---
+    with c_esc2:
+        st.markdown("### 🛡️ STATUS")
+        st.success("🟢 ONLINE")
+        st.link_button("GEMINI CLOUD ☁️", "https://gemini.google.com/")
+
+# --- ABA 2: AÇÃO ---
 with abas[1]:
-    st.markdown("### ⚡ INPUT RÁPIDO")
-    with st.form("smart_input"):
-        c_desc, c_val = st.columns([2, 1])
-        desc = c_desc.text_input("Descrição")
-        valor = c_val.number_input("Valor R$", 0.0)
-        tipo = st.selectbox("Categoria", ["GASTO: PEÇA KOMBI", "GASTO: FERRAMENTA", "GASTO: VIDA", "GASTO: VIAGEM", "AGENDA"])
-        if st.form_submit_button("LANÇAR"):
-            if tipo == "AGENDA":
-                n = pd.DataFrame({'Data': [date.today()], 'Hora': ['09:00'], 'Evento': [desc], 'Status': ['Pendente']})
+    st.markdown("### ⚡ LANÇAMENTO")
+    with st.form("smart"):
+        c1, c2 = st.columns([2, 1])
+        d = c1.text_input("Descrição")
+        v = c2.number_input("Valor", 0.0)
+        t = st.selectbox("Tipo", ["GASTO: PEÇA KOMBI", "GASTO: FERRAMENTA", "GASTO: VIDA", "GASTO: VIAGEM", "AGENDA: EVENTO"])
+        if st.form_submit_button("EXECUTAR"):
+            if "AGENDA" in t:
+                n = pd.DataFrame({'Data': [date.today()], 'Hora': ['09:00'], 'Evento': [d], 'Status': ['Pendente']})
                 st.session_state.agenda = pd.concat([st.session_state.agenda, n], ignore_index=True)
-                st.success("Agendado!")
+                st.success("Agendado")
             else:
-                st.success(processar_dado(desc, valor, tipo))
-            st.experimental_rerun()
+                msg = processar_dado(d, v, t)
+                st.success(msg)
+            st.rerun() # <--- CORREÇÃO AQUI TAMBÉM
 
 # --- ABA 3: CÓRTEX ---
 with abas[2]:
+    st.markdown("### 🧠 BIO-FEEDBACK")
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 🥗 COMBUSTÍVEL")
-        if st.checkbox("✅ JÁ COMI?", value=st.session_state.saude['comida_ok']):
-            st.session_state.saude['comida_ok'] = True
-        if st.checkbox("💊 REMÉDIO TDAH?", value=st.session_state.saude['meds_tomados']):
-            st.session_state.saude['meds_tomados'] = True
-        st.markdown("---")
-        st.caption(f"Água: {st.session_state.saude['agua_copos']}/8")
+        comida = st.checkbox("✅ REFEIÇÃO SÓLIDA?", value=st.session_state.saude['comida_ok'])
+        if comida != st.session_state.saude['comida_ok']:
+            st.session_state.saude['comida_ok'] = comida
+            if comida: st.balloons()
+            st.rerun() # <--- CORREÇÃO
         if st.button("💧 +1 ÁGUA"):
             st.session_state.saude['agua_copos'] += 1
-            st.experimental_rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.rerun() # <--- CORREÇÃO
     with c2:
-        st.metric("Caixa Total", f"R$ {st.session_state.financas['Valor'].sum():,.2f}")
-        hoje = date.today()
-        ag = st.session_state.agenda[(st.session_state.agenda['Data'] == hoje) & (st.session_state.agenda['Status'] == 'Pendente')]
-        if not ag.empty: st.error(f"🚨 {len(ag)} TAREFAS HOJE")
-        else: st.success("AGENDA LIVRE")
+        meds = st.checkbox("MEDICAÇÃO TDAH", value=st.session_state.saude['meds_tomados'])
+        if meds != st.session_state.saude['meds_tomados']:
+            st.session_state.saude['meds_tomados'] = meds
+            st.rerun() # <--- CORREÇÃO
 
-# --- ABA 4: SISTEMA KOMBI ---
+# --- ABA 4: KOMBI ---
 with abas[3]:
-    c_k1, c_k2 = st.columns([1, 2])
-    with c_k1:
-        novo_km = st.number_input("KM Painel", value=st.session_state.dados_kombi['km_atual'])
-        if novo_km != st.session_state.dados_kombi['km_atual']:
-            st.session_state.dados_kombi['km_atual'] = novo_km
-            st.experimental_rerun()
-        km_rest = (st.session_state.dados_kombi['km_oleo'] + 5000) - novo_km
-        if km_rest < 0: st.error(f"TROCA ÓLEO ({abs(km_rest)}km)")
-        else: st.success(f"ÓLEO OK ({km_rest}km)")
-        if st.button("🔧 TROQUEI O ÓLEO"):
-            st.session_state.dados_kombi['km_oleo'] = novo_km
-            processar_dado("Troca Óleo", 250.00, "GASTO: PEÇA KOMBI")
-            st.experimental_rerun()
-    with c_k2:
-        st.markdown('<div class="glass-card"><b>KOMBI 1.4 FLEX (2007)</b><br>🔋 Bateria: Júpiter 60Ah<br>🛢️ Óleo: 5W40 (3.5L)<br>⚡ Velas: NGK BKR7E-D</div>', unsafe_allow_html=True)
+    st.markdown("### 🚐 TELEMETRIA")
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        km = st.number_input("KM Painel", value=st.session_state.dados_kombi['km_atual'])
+        if km != st.session_state.dados_kombi['km_atual']:
+            st.session_state.dados_kombi['km_atual'] = km
+            st.rerun() # <--- CORREÇÃO
+        if st.button("ZERAR ÓLEO"):
+            st.session_state.dados_kombi['km_oleo'] = km
+            processar_dado("Troca Óleo", 250, "GASTO: PEÇA KOMBI")
+            st.rerun() # <--- CORREÇÃO
+    with c2:
+        st.info("🔋 BATERIA: Júpiter 60Ah / Freedom 115Ah")
+        st.info("🛢️ ÓLEO: 5W40 Sintético (3.5L)")
 
 # --- ABA 5: AGENDA ---
 with abas[4]:
+    st.markdown("### 📅 MISSÕES")
     if not st.session_state.agenda.empty:
-        st.dataframe(st.session_state.agenda, use_container_width=True)
+        for i, row in st.session_state.agenda.iterrows():
+            st.checkbox(f"{row['Evento']}", value=(row['Status']=='Concluído'), key=i)
 
 # --- ABA 6: COFRE ---
 with abas[5]:
-    if not st.session_state.financas.empty:
-        st.dataframe(st.session_state.financas, use_container_width=True)
+    st.markdown("### 💰 CAIXA")
+    if not st.session_state.financas.empty: st.dataframe(st.session_state.financas, use_container_width=True)
 
-# --- ABA 7: JORNADA ---
+# --- ABA 7: DOCS ---
 with abas[6]:
+    st.markdown("### 📁 ARQUIVO")
+    up = st.file_uploader("Upload", type=['pdf', 'jpg'])
+    if up:
+        with open(os.path.join(PASTA_DOCS, up.name), "wb") as f: f.write(up.getbuffer())
+        st.success("Salvo")
+    
+    if os.path.exists(PASTA_DOCS):
+        arquivos = os.listdir(PASTA_DOCS)
+        if arquivos:
+            for arq in arquivos: st.markdown(f"📄 {arq}")
+
+# --- ABA 8: ROTA ---
+with abas[7]:
+    st.markdown("### 🌎 ROTEIROS")
     c1, c2 = st.columns(2)
     with c1:
-        dist = st.number_input("Distância Km", 100)
-        st.metric("Custo Gasolina", f"R$ {(dist/9.0)*6.10:.2f}")
+        dist = st.number_input("Km", 100)
+        st.metric("Gasolina Est.", f"R$ {(dist/9)*6.10:.2f}")
     with c2:
-        dest = st.text_input("Destino")
+        dest = st.text_input("Novo Destino")
         if st.button("Add"):
             n = pd.DataFrame({'Destino': [dest], 'Pais': ['-'], 'Status': ['Sonho']})
             st.session_state.roteiros = pd.concat([st.session_state.roteiros, n], ignore_index=True)
-            st.experimental_rerun()
+            st.rerun() # <--- CORREÇÃO
         st.dataframe(st.session_state.roteiros, use_container_width=True)
         
