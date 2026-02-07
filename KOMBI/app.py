@@ -46,14 +46,27 @@ def init_db():
     if 'financas' not in st.session_state: st.session_state.financas = pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo'])
     if 'inventario' not in st.session_state: st.session_state.inventario = pd.DataFrame(columns=['Item', 'Local', 'Qtd', 'Setor'])
     
-    # Roteiros (Correção V26 mantida)
     cols_rota = ['Origem', 'Destino', 'Km', 'Custo_Est', 'Status']
-    if 'roteiros' not in st.session_state: st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
+    if 'roteiros' not in st.session_state:
+        st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
     else:
-        if 'Origem' not in st.session_state.roteiros.columns: st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
+        if 'Origem' not in st.session_state.roteiros.columns:
+            st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
 
     if 'escort_chat' not in st.session_state: st.session_state.escort_chat = []
 init_db()
+
+# --- LISTA MESTRA DE CATEGORIAS ---
+CATEGORIAS = [
+    "GASTO: TECNOLOGIA/PESSOAL 💻",
+    "GASTO: FERRAMENTA OURIVESARIA 💍", 
+    "GASTO: FERRAMENTA MECÂNICA 🔧",
+    "GASTO: PEÇA KOMBI 🚐", 
+    "GASTO: SOLAR/CASA ⚡", 
+    "GASTO: VIDA (ALIMENTAÇÃO/OUTROS) 🍔", 
+    "GASTO: VIAGEM (GASOLINA/PEDÁGIO) ⛽",
+    "RECEITA: VENDA/SERVIÇO 💰"
+]
 
 # --- 5. LÓGICA INTELIGENTE ---
 def processar_dado(desc, valor, tipo, is_legacy):
@@ -62,23 +75,24 @@ def processar_dado(desc, valor, tipo, is_legacy):
         novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [val_float], 'Tipo': [tipo]})
         st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
     
-    # Lógica de Setorização Aprimorada
+    # Roteador de Pastas (Define para onde vai)
     if "FERRAMENTA" in tipo or "PEÇA" in tipo or "TECNOLOGIA" in tipo or "SOLAR" in tipo:
-        setor = "GERAL"
         if "OURIVES" in tipo: setor = "JOALHERIA"
         elif "MECÂNICA" in tipo or "KOMBI" in tipo: setor = "MECÂNICA"
-        elif "TECNOLOGIA" in tipo or "PESSOAL" in tipo: setor = "PESSOAL"
-        elif "SOLAR" in tipo or "CASA" in tipo: setor = "CASA"
-            
+        elif "TECNOLOGIA" in tipo: setor = "PESSOAL"
+        elif "SOLAR" in tipo: setor = "CASA/SOLAR"
+        else: setor = "GERAL" 
+        
         novo_inv = pd.DataFrame({'Item': [desc], 'Local': ['A Classificar'], 'Qtd': [1], 'Setor': [setor]})
         st.session_state.inventario = pd.concat([st.session_state.inventario, novo_inv], ignore_index=True)
-        if is_legacy: return f"📦 {desc} cadastrado em {setor} (Sem custo)."
-        return f"✅ {desc} comprado p/ {setor}!"
-    return "✅ Registrado."
+        
+        if is_legacy: return f"📦 {desc} guardado na pasta {setor}."
+        return f"✅ {desc} comprado e enviado para {setor}!"
+    return "✅ Registrado no Financeiro."
 
 # --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • ARSENAL V27</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • ORGANIZER V27</div>', unsafe_allow_html=True)
 
 # HUD
 c1, c2, c3 = st.columns(3)
@@ -102,89 +116,29 @@ with c3:
 st.markdown("---")
 
 # ABAS
-abas = st.tabs(["⚡ AÇÃO", "⚒️ ARSENAL", "💰 COFRE", "📅 AGENDA", "🚐 KOMBI", "🌎 ROTA", "🐴 ESCORT", "📁 DOCS"])
+abas = st.tabs(["⚡ AÇÃO", "💰 COFRE", "⚒️ ARSENAL", "📅 AGENDA", "🚐 KOMBI", "🌎 ROTA", "🐴 ESCORT", "📁 DOCS"])
 
 # --- ABA 1: AÇÃO ---
 with abas[0]:
     st.markdown("### ⚡ LANÇAMENTO TÁTICO")
+    st.caption("Escolha a categoria para enviar o item para a pasta correta.")
     with st.form("smart"):
         c1, c2 = st.columns([2, 1])
-        d = c1.text_input("Descrição")
+        d = c1.text_input("Descrição do Item/Evento")
         v = c2.number_input("Valor (R$)", 0.0)
-        t = st.selectbox("Categoria", [
-            "GASTO: TECNOLOGIA/PESSOAL 💻",
-            "GASTO: FERRAMENTA OURIVESARIA 💍", 
-            "GASTO: FERRAMENTA MECÂNICA 🔧",
-            "GASTO: PEÇA KOMBI 🚐", 
-            "GASTO: SOLAR/CASA ⚡", 
-            "GASTO: VIDA 🍔", 
-            "GASTO: VIAGEM ⛽",
-            "RECEITA: VENDA/SERVIÇO 💰"
-        ])
-        is_legacy = st.checkbox("Já possuo este item (Inventário / Sem Gasto)")
-        if st.form_submit_button("EXECUTAR"):
+        
+        # USA A LISTA MESTRA
+        t = st.selectbox("Onde devo guardar isso?", CATEGORIAS)
+        
+        is_legacy = st.checkbox("Já possuo este item (Apenas Inventário / Sem Gasto)")
+        if st.form_submit_button("LANÇAR"):
             if "RECEITA" in t: pass 
             msg = processar_dado(d, v, t, is_legacy)
             st.success(msg)
             st.rerun()
 
-# --- ABA 2: ARSENAL (CATEGORIZADO) ---
+# --- ABA 2: COFRE (COM DROPDOWN NA TABELA) ---
 with abas[1]:
-    st.markdown("### ⚒️ ARSENAL ESTRATÉGICO")
-    
-    if not st.session_state.inventario.empty:
-        # Opções de Setor para edição
-        setores_validos = ["JOALHERIA", "MECÂNICA", "PESSOAL", "CASA", "GERAL"]
-        
-        # Função helper para mostrar editor filtrado
-        def mostrar_setor(nome_setor, emoji, filtro):
-            st.markdown(f"#### {emoji} {nome_setor}")
-            df_filt = st.session_state.inventario[st.session_state.inventario['Setor'] == filtro]
-            
-            # Mostra editor mesmo se vazio, para permitir adicionar linhas manuais se quiser no futuro
-            if not df_filt.empty:
-                st.dataframe(df_filt[['Item', 'Local', 'Qtd']], use_container_width=True, hide_index=True)
-            else:
-                st.caption("Nenhum item cadastrado neste setor.")
-
-        # Exibição por Blocos (Expander para não poluir)
-        with st.expander("💎 JOALHERIA (OURIVES)", expanded=True):
-            mostrar_setor("ATELIÊ", "💍", "JOALHERIA")
-            
-        with st.expander("🔧 MECÂNICA (OFICINA)", expanded=False):
-            mostrar_setor("GARAGEM", "🔧", "MECÂNICA")
-            
-        with st.expander("💻 PESSOAL & TECH", expanded=False):
-            mostrar_setor("EQUIPAMENTOS", "💻", "PESSOAL")
-            
-        with st.expander("🏠 CASA & CAMPING", expanded=False):
-            mostrar_setor("LOGÍSTICA", "⛺", "CASA")
-
-        st.markdown("---")
-        st.markdown("#### 📝 GERENCIADOR GERAL (Edite tudo aqui)")
-        # Editor Mestre onde dá para trocar o setor
-        df_inv_edit = st.data_editor(
-            st.session_state.inventario, 
-            num_rows="dynamic", 
-            use_container_width=True,
-            column_config={
-                "Setor": st.column_config.SelectboxColumn(
-                    "Setor (Categoria)",
-                    help="Mude a categoria do item",
-                    width="medium",
-                    options=setores_validos,
-                    required=True
-                )
-            }
-        )
-        if not df_inv_edit.equals(st.session_state.inventario):
-            st.session_state.inventario = df_inv_edit
-            st.rerun()
-
-    else: st.info("Arsenal vazio. Adicione itens na aba AÇÃO.")
-
-# --- ABA 3: COFRE ---
-with abas[2]:
     st.markdown("### 💰 FLUXO DE CAIXA")
     if not st.session_state.financas.empty:
         try:
@@ -195,13 +149,55 @@ with abas[2]:
             c_sal1.metric("Entradas", f"R$ {receitas:,.2f}")
             c_sal2.metric("Saídas", f"R$ {despesas:,.2f}")
             c_sal3.metric("Saldo Atual", f"R$ {saldo:,.2f}", delta=saldo)
-            st.markdown("#### 📝 REGISTROS")
-            df_editado = st.data_editor(st.session_state.financas, num_rows="dynamic", use_container_width=True)
+            
+            st.markdown("#### 📝 REGISTROS (Edite a Categoria direto aqui 👇)")
+            
+            # CONFIGURAÇÃO PODEROSA DA TABELA
+            df_editado = st.data_editor(
+                st.session_state.financas, 
+                num_rows="dynamic", 
+                use_container_width=True,
+                column_config={
+                    "Tipo": st.column_config.SelectboxColumn(
+                        "Categoria",
+                        help="Mude a categoria se errou",
+                        width="medium",
+                        options=CATEGORIAS, # AQUI ESTÁ O SEGREDO
+                        required=True
+                    ),
+                    "Valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f")
+                }
+            )
             if not df_editado.equals(st.session_state.financas):
                 st.session_state.financas = df_editado
                 st.rerun()
         except: st.error("Erro nos dados.")
     else: st.info("Cofre vazio.")
+
+# --- ABA 3: ARSENAL (COM DROPDOWN NA TABELA) ---
+with abas[2]:
+    st.markdown("### ⚒️ ARSENAL MAKER")
+    if not st.session_state.inventario.empty:
+        
+        # CONFIGURAÇÃO PODEROSA DA TABELA DE INVENTÁRIO
+        df_inv_edit = st.data_editor(
+            st.session_state.inventario, 
+            num_rows="dynamic", 
+            use_container_width=True,
+            column_config={
+                "Setor": st.column_config.SelectboxColumn(
+                    "Pasta/Setor",
+                    help="Mova o item de pasta",
+                    width="medium",
+                    options=["JOALHERIA", "MECÂNICA", "PESSOAL", "CASA/SOLAR", "GERAL"],
+                    required=True
+                )
+            }
+        )
+        if not df_inv_edit.equals(st.session_state.inventario):
+            st.session_state.inventario = df_inv_edit
+            st.rerun()
+    else: st.info("Inventário vazio.")
 
 # --- ABA 4: AGENDA ---
 with abas[3]:
@@ -249,29 +245,52 @@ with abas[4]:
 
 # --- ABA 6: ROTA ---
 with abas[5]:
-    st.markdown("### 🌎 LOGÍSTICA")
+    st.markdown("### 🌎 LOGÍSTICA DE COMBATE")
     with st.expander("➕ TRAÇAR NOVA ROTA", expanded=True):
         with st.form("nova_rota"):
             c1, c2 = st.columns(2)
-            origem = c1.text_input("Origem")
-            destino = c2.text_input("Destino")
-            km_rota = st.number_input("Km", min_value=1)
+            origem = c1.text_input("Origem (Ex: Curitiba, PR)")
+            destino = c2.text_input("Destino (Ex: Florianópolis, SC)")
+            km_rota = st.number_input("Distância (Km)", min_value=1)
+            
             if origem and destino:
-                st.link_button("🗺️ TESTAR NO MAPS", f"https://www.google.com/maps/dir/?api=1&origin={origem}&destination={destino}")
+                link_test = f"https://www.google.com/maps/dir/?api=1&origin={origem}&destination={destino}"
+                st.link_button("🗺️ TESTAR NO MAPS", link_test)
+            
             custo_est = (km_rota / 9.0) * 6.10
-            st.caption(f"Custo: R$ {custo_est:.2f}")
+            st.caption(f"Custo Estimado: R$ {custo_est:.2f}")
             status_rota = st.selectbox("Status", ["Planejado", "Em Rota", "Concluído"])
-            if st.form_submit_button("REGISTRAR"):
-                novo = pd.DataFrame([{'Origem': origem, 'Destino': destino, 'Km': km_rota, 'Custo_Est': custo_est, 'Status': status_rota}])
-                st.session_state.roteiros = pd.concat([st.session_state.roteiros, novo], ignore_index=True)
+            
+            if st.form_submit_button("REGISTRAR ROTA"):
+                novo_roteiro = pd.DataFrame([{
+                    'Origem': origem, 'Destino': destino, 'Km': km_rota,
+                    'Custo_Est': custo_est, 'Status': status_rota
+                }])
+                st.session_state.roteiros = pd.concat([st.session_state.roteiros, novo_roteiro], ignore_index=True)
                 st.rerun()
 
     if not st.session_state.roteiros.empty:
+        st.markdown("#### 🗺️ MAPA DE OPERAÇÕES")
+        df_display = st.session_state.roteiros.copy()
         try:
-            df_display = st.session_state.roteiros.copy()
-            df_display["Navegar"] = df_display.apply(lambda x: f"https://www.google.com/maps/dir/?api=1&origin={x['Origem']}&destination={x['Destino']}", axis=1)
-            st.data_editor(df_display, num_rows="dynamic", use_container_width=True, column_config={"Navegar": st.column_config.LinkColumn("Maps", display_text="🗺️ Ir")})
-        except: st.write(st.session_state.roteiros)
+            df_display["Navegar"] = df_display.apply(
+                lambda x: f"https://www.google.com/maps/dir/?api=1&origin={x['Origem']}&destination={x['Destino']}", axis=1
+            )
+            st.data_editor(
+                df_display, 
+                num_rows="dynamic", 
+                use_container_width=True,
+                column_config={
+                    "Navegar": st.column_config.LinkColumn("Link Maps", display_text="🗺️ Ir"),
+                    "Custo_Est": st.column_config.NumberColumn("Custo (R$)", format="R$ %.2f"),
+                    "Km": st.column_config.NumberColumn("Distância", format="%d km"),
+                    "Status": st.column_config.SelectboxColumn("Status", options=["Planejado", "Em Rota", "Concluído"])
+                }
+            )
+        except Exception as e:
+            st.error("Erro ao gerar links.")
+            st.write(st.session_state.roteiros)
+    else: st.info("Nenhuma rota traçada.")
 
 # --- ABA 7: ESCORT ---
 with abas[6]:
@@ -299,6 +318,7 @@ with abas[7]:
         st.success("Salvo")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
 
 
 
