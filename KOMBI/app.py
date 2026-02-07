@@ -38,7 +38,7 @@ if not st.session_state.authenticated:
         st.text_input("SENHA DE ACESSO", type="password", key="password_input", on_change=check_password)
     st.stop()
 
-# --- 4. DADOS (COM CORREÇÃO AUTOMÁTICA) ---
+# --- 4. DADOS ---
 def init_db():
     if 'agenda' not in st.session_state: st.session_state.agenda = pd.DataFrame(columns=['Data', 'Hora', 'Evento', 'Status'])
     if 'saude' not in st.session_state: st.session_state.saude = {'agua_copos': 0, 'comida_ok': False, 'meds_tomados': False}
@@ -46,14 +46,11 @@ def init_db():
     if 'financas' not in st.session_state: st.session_state.financas = pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo'])
     if 'inventario' not in st.session_state: st.session_state.inventario = pd.DataFrame(columns=['Item', 'Local', 'Qtd', 'Setor'])
     
-    # --- CORREÇÃO DE ERRO DE MEMÓRIA (ROTEIROS) ---
+    # Roteiros (Correção V26 mantida)
     cols_rota = ['Origem', 'Destino', 'Km', 'Custo_Est', 'Status']
-    if 'roteiros' not in st.session_state:
-        st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
+    if 'roteiros' not in st.session_state: st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
     else:
-        # Se a tabela existe mas é velha (sem Origem), a gente recria
-        if 'Origem' not in st.session_state.roteiros.columns:
-            st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
+        if 'Origem' not in st.session_state.roteiros.columns: st.session_state.roteiros = pd.DataFrame(columns=cols_rota)
 
     if 'escort_chat' not in st.session_state: st.session_state.escort_chat = []
 init_db()
@@ -65,20 +62,23 @@ def processar_dado(desc, valor, tipo, is_legacy):
         novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [val_float], 'Tipo': [tipo]})
         st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
     
-    if "FERRAMENTA" in tipo or "PEÇA" in tipo or "TECNOLOGIA" in tipo:
+    # Lógica de Setorização Aprimorada
+    if "FERRAMENTA" in tipo or "PEÇA" in tipo or "TECNOLOGIA" in tipo or "SOLAR" in tipo:
+        setor = "GERAL"
         if "OURIVES" in tipo: setor = "JOALHERIA"
         elif "MECÂNICA" in tipo or "KOMBI" in tipo: setor = "MECÂNICA"
-        elif "TECNOLOGIA" in tipo: setor = "PESSOAL"
-        else: setor = "GERAL" 
+        elif "TECNOLOGIA" in tipo or "PESSOAL" in tipo: setor = "PESSOAL"
+        elif "SOLAR" in tipo or "CASA" in tipo: setor = "CASA"
+            
         novo_inv = pd.DataFrame({'Item': [desc], 'Local': ['A Classificar'], 'Qtd': [1], 'Setor': [setor]})
         st.session_state.inventario = pd.concat([st.session_state.inventario, novo_inv], ignore_index=True)
-        if is_legacy: return f"📦 {desc} cadastrado (Inventário)."
-        return f"✅ {desc} comprado!"
+        if is_legacy: return f"📦 {desc} cadastrado em {setor} (Sem custo)."
+        return f"✅ {desc} comprado p/ {setor}!"
     return "✅ Registrado."
 
 # --- 6. HEADER ---
 st.markdown('<div class="header-title">FAB\'S LAB.</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">VW KOMBI 1.4 • MAPS FIXED V26</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">VW KOMBI 1.4 • ARSENAL V27</div>', unsafe_allow_html=True)
 
 # HUD
 c1, c2, c3 = st.columns(3)
@@ -102,7 +102,7 @@ with c3:
 st.markdown("---")
 
 # ABAS
-abas = st.tabs(["⚡ AÇÃO", "💰 COFRE", "⚒️ ARSENAL", "📅 AGENDA", "🚐 KOMBI", "🌎 ROTA", "🐴 ESCORT", "📁 DOCS"])
+abas = st.tabs(["⚡ AÇÃO", "⚒️ ARSENAL", "💰 COFRE", "📅 AGENDA", "🚐 KOMBI", "🌎 ROTA", "🐴 ESCORT", "📁 DOCS"])
 
 # --- ABA 1: AÇÃO ---
 with abas[0]:
@@ -121,15 +121,70 @@ with abas[0]:
             "GASTO: VIAGEM ⛽",
             "RECEITA: VENDA/SERVIÇO 💰"
         ])
-        is_legacy = st.checkbox("Já possuo este item (Sem Gasto)")
+        is_legacy = st.checkbox("Já possuo este item (Inventário / Sem Gasto)")
         if st.form_submit_button("EXECUTAR"):
             if "RECEITA" in t: pass 
             msg = processar_dado(d, v, t, is_legacy)
             st.success(msg)
             st.rerun()
 
-# --- ABA 2: COFRE ---
+# --- ABA 2: ARSENAL (CATEGORIZADO) ---
 with abas[1]:
+    st.markdown("### ⚒️ ARSENAL ESTRATÉGICO")
+    
+    if not st.session_state.inventario.empty:
+        # Opções de Setor para edição
+        setores_validos = ["JOALHERIA", "MECÂNICA", "PESSOAL", "CASA", "GERAL"]
+        
+        # Função helper para mostrar editor filtrado
+        def mostrar_setor(nome_setor, emoji, filtro):
+            st.markdown(f"#### {emoji} {nome_setor}")
+            df_filt = st.session_state.inventario[st.session_state.inventario['Setor'] == filtro]
+            
+            # Mostra editor mesmo se vazio, para permitir adicionar linhas manuais se quiser no futuro
+            if not df_filt.empty:
+                st.dataframe(df_filt[['Item', 'Local', 'Qtd']], use_container_width=True, hide_index=True)
+            else:
+                st.caption("Nenhum item cadastrado neste setor.")
+
+        # Exibição por Blocos (Expander para não poluir)
+        with st.expander("💎 JOALHERIA (OURIVES)", expanded=True):
+            mostrar_setor("ATELIÊ", "💍", "JOALHERIA")
+            
+        with st.expander("🔧 MECÂNICA (OFICINA)", expanded=False):
+            mostrar_setor("GARAGEM", "🔧", "MECÂNICA")
+            
+        with st.expander("💻 PESSOAL & TECH", expanded=False):
+            mostrar_setor("EQUIPAMENTOS", "💻", "PESSOAL")
+            
+        with st.expander("🏠 CASA & CAMPING", expanded=False):
+            mostrar_setor("LOGÍSTICA", "⛺", "CASA")
+
+        st.markdown("---")
+        st.markdown("#### 📝 GERENCIADOR GERAL (Edite tudo aqui)")
+        # Editor Mestre onde dá para trocar o setor
+        df_inv_edit = st.data_editor(
+            st.session_state.inventario, 
+            num_rows="dynamic", 
+            use_container_width=True,
+            column_config={
+                "Setor": st.column_config.SelectboxColumn(
+                    "Setor (Categoria)",
+                    help="Mude a categoria do item",
+                    width="medium",
+                    options=setores_validos,
+                    required=True
+                )
+            }
+        )
+        if not df_inv_edit.equals(st.session_state.inventario):
+            st.session_state.inventario = df_inv_edit
+            st.rerun()
+
+    else: st.info("Arsenal vazio. Adicione itens na aba AÇÃO.")
+
+# --- ABA 3: COFRE ---
+with abas[2]:
     st.markdown("### 💰 FLUXO DE CAIXA")
     if not st.session_state.financas.empty:
         try:
@@ -147,16 +202,6 @@ with abas[1]:
                 st.rerun()
         except: st.error("Erro nos dados.")
     else: st.info("Cofre vazio.")
-
-# --- ABA 3: ARSENAL ---
-with abas[2]:
-    st.markdown("### ⚒️ ARSENAL MAKER")
-    if not st.session_state.inventario.empty:
-        df_inv_edit = st.data_editor(st.session_state.inventario, num_rows="dynamic", use_container_width=True)
-        if not df_inv_edit.equals(st.session_state.inventario):
-            st.session_state.inventario = df_inv_edit
-            st.rerun()
-    else: st.info("Inventário vazio.")
 
 # --- ABA 4: AGENDA ---
 with abas[3]:
@@ -202,64 +247,31 @@ with abas[4]:
         st.warning("🔋 ESTACIONÁRIA: **FREEDOM 115Ah**")
         st.text_area("Log de Energia", height=150)
 
-# --- ABA 6: ROTA (COM GOOGLE MAPS) ---
+# --- ABA 6: ROTA ---
 with abas[5]:
-    st.markdown("### 🌎 LOGÍSTICA DE COMBATE")
-    
+    st.markdown("### 🌎 LOGÍSTICA")
     with st.expander("➕ TRAÇAR NOVA ROTA", expanded=True):
         with st.form("nova_rota"):
             c1, c2 = st.columns(2)
-            origem = c1.text_input("Origem (Ex: Curitiba, PR)")
-            destino = c2.text_input("Destino (Ex: Florianópolis, SC)")
-            km_rota = st.number_input("Distância (Km)", min_value=1)
-            
-            # Link para testar antes de salvar
+            origem = c1.text_input("Origem")
+            destino = c2.text_input("Destino")
+            km_rota = st.number_input("Km", min_value=1)
             if origem and destino:
-                link_test = f"https://www.google.com/maps/dir/?api=1&origin={origem}&destination={destino}"
-                st.link_button("🗺️ TESTAR NO MAPS", link_test)
-            
+                st.link_button("🗺️ TESTAR NO MAPS", f"https://www.google.com/maps/dir/?api=1&origin={origem}&destination={destino}")
             custo_est = (km_rota / 9.0) * 6.10
-            st.caption(f"Custo Estimado: R$ {custo_est:.2f}")
+            st.caption(f"Custo: R$ {custo_est:.2f}")
             status_rota = st.selectbox("Status", ["Planejado", "Em Rota", "Concluído"])
-            
-            if st.form_submit_button("REGISTRAR ROTA"):
-                novo_roteiro = pd.DataFrame([{
-                    'Origem': origem, 'Destino': destino, 'Km': km_rota,
-                    'Custo_Est': custo_est, 'Status': status_rota
-                }])
-                st.session_state.roteiros = pd.concat([st.session_state.roteiros, novo_roteiro], ignore_index=True)
+            if st.form_submit_button("REGISTRAR"):
+                novo = pd.DataFrame([{'Origem': origem, 'Destino': destino, 'Km': km_rota, 'Custo_Est': custo_est, 'Status': status_rota}])
+                st.session_state.roteiros = pd.concat([st.session_state.roteiros, novo], ignore_index=True)
                 st.rerun()
 
     if not st.session_state.roteiros.empty:
-        st.markdown("#### 🗺️ MAPA DE OPERAÇÕES")
-        
-        # Cria cópia para exibição com link
-        df_display = st.session_state.roteiros.copy()
-        
-        # GERAÇÃO SEGURA DO LINK (EVITA O ERRO)
         try:
-            df_display["Navegar"] = df_display.apply(
-                lambda x: f"https://www.google.com/maps/dir/?api=1&origin={x['Origem']}&destination={x['Destino']}", axis=1
-            )
-            
-            # Exibe com botão clicável
-            st.data_editor(
-                df_display, 
-                num_rows="dynamic", 
-                use_container_width=True,
-                column_config={
-                    "Navegar": st.column_config.LinkColumn(
-                        "Link Maps", display_text="🗺️ Ir", help="Clique para abrir no Google Maps"
-                    ),
-                    "Custo_Est": st.column_config.NumberColumn("Custo (R$)", format="R$ %.2f"),
-                    "Km": st.column_config.NumberColumn("Distância", format="%d km"),
-                    "Status": st.column_config.SelectboxColumn("Status", options=["Planejado", "Em Rota", "Concluído"])
-                }
-            )
-        except Exception as e:
-            st.error("Erro ao gerar links. Tente recarregar a página.")
-            st.write(st.session_state.roteiros)
-    else: st.info("Nenhuma rota traçada.")
+            df_display = st.session_state.roteiros.copy()
+            df_display["Navegar"] = df_display.apply(lambda x: f"https://www.google.com/maps/dir/?api=1&origin={x['Origem']}&destination={x['Destino']}", axis=1)
+            st.data_editor(df_display, num_rows="dynamic", use_container_width=True, column_config={"Navegar": st.column_config.LinkColumn("Maps", display_text="🗺️ Ir")})
+        except: st.write(st.session_state.roteiros)
 
 # --- ABA 7: ESCORT ---
 with abas[6]:
@@ -287,6 +299,7 @@ with abas[7]:
         st.success("Salvo")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
 
 
 
