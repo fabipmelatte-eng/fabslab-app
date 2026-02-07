@@ -25,7 +25,7 @@ st.markdown("""
 # --- 3. SISTEMA DE SEGURANÇA ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 def check_password():
-    if st.session_state.password_input == "iron6Maiden7":
+    if st.session_state.password_input == "Iron6Maiden7":
         st.session_state.authenticated = True
         del st.session_state.password_input
     else: st.error("⛔ SENHA INCORRETA")
@@ -324,3 +324,4 @@ with abas[7]:
         st.success("Salvo")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
