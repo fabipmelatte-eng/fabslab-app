@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 import os
 import urllib.parse
 
@@ -9,14 +9,19 @@ st.set_page_config(page_title="FAB'S LAB.", page_icon="🧬", layout="wide", ini
 PASTA_DOCS = "meus_documentos"
 if not os.path.exists(PASTA_DOCS): os.makedirs(PASTA_DOCS)
 
-# --- 2. ESTILO CYBERPUNK REFINADO (V33) ---
+# --- FUNÇÃO DE TEMPO (BRASIL UTC-3) ---
+def get_fabi_time():
+    # Pega a hora universal (UTC) e tira 3 horas
+    return datetime.utcnow() - timedelta(hours=3)
+
+def get_fabi_date():
+    return get_fabi_time().date()
+
+# --- 2. ESTILO CYBERPUNK REFINADO (V33/34) ---
 st.markdown("""
     <style>
     /* FONTES: Rajdhani (Técnica e Legível) e Orbitron (Títulos) */
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;900&family=Rajdhani:wght@400;600;700&display=swap');
-
-    /* PALETA PYTHON: #306998 (Azul), #FFD43B (Amarelo) */
-    /* PALETA CYBER: #00ff41 (Verde Matrix), #000000 (Preto) */
 
     .stApp { 
         background-color: #050505; 
@@ -37,7 +42,6 @@ st.markdown("""
         text-shadow: 0 0 10px rgba(48, 105, 152, 0.5); /* Glow Azul Python */
     }
     
-    /* ANIMAÇÃO DO PONTO */
     @keyframes blink { 50% { opacity: 0; } }
     .blink { animation: blink 1s linear infinite; color: #FFD43B; } /* Ponto Amarelo Python */
 
@@ -112,7 +116,7 @@ st.markdown("""
         font-size: 14px;
         color: #888;
     }
-    </style>
+    </style> 
     """, unsafe_allow_html=True)
 
 # --- 3. SEGURANÇA ---
@@ -163,7 +167,8 @@ CATEGORIAS = [
 def processar_dado(desc, valor, tipo, is_legacy):
     if not is_legacy:
         val_float = float(valor)
-        novo_fin = pd.DataFrame({'Data': [date.today()], 'Descricao': [desc], 'Valor': [val_float], 'Tipo': [tipo]})
+        # USA DATA CORRIGIDA
+        novo_fin = pd.DataFrame({'Data': [get_fabi_date()], 'Descricao': [desc], 'Valor': [val_float], 'Tipo': [tipo]})
         st.session_state.financas = pd.concat([st.session_state.financas, novo_fin], ignore_index=True)
     
     setor = None
@@ -182,7 +187,7 @@ def processar_dado(desc, valor, tipo, is_legacy):
 
 # --- 6. HEADER (HUD INTELIGENTE) ---
 st.markdown('<div class="header-title">FAB\'S LAB<span class="blink">.</span></div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">DATABASE ONLINE • V33</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">DATABASE ONLINE • V34 (BRT TIME)</div>', unsafe_allow_html=True)
 
 # CÁLCULOS DO HUD
 saldo_atual = 0.0
@@ -194,7 +199,8 @@ if not st.session_state.financas.empty:
     except: pass
 
 prox_missao = "SEM MISSÕES"
-hoje = date.today()
+hoje_br = get_fabi_date() # DATA CORRIGIDA
+
 if not st.session_state.agenda.empty:
     try:
         st.session_state.agenda['Data'] = pd.to_datetime(st.session_state.agenda['Data']).dt.date
@@ -208,7 +214,8 @@ if not st.session_state.agenda.empty:
 c1, c2, c3 = st.columns(3)
 with c1: st.metric("PRÓXIMA MISSÃO", prox_missao)
 with c2: st.metric("SALDO ATUAL", f"R$ {saldo_atual:,.2f}")
-with c3: st.metric("DATA/HORA", datetime.now().strftime("%d/%m %H:%M"))
+# HORA CORRIGIDA NO HUD
+with c3: st.metric("DATA/HORA (BR)", get_fabi_time().strftime("%d/%m %H:%M"))
 
 st.markdown("---")
 
@@ -274,7 +281,8 @@ with abas[3]:
     with st.expander("➕ NOVA MISSÃO", expanded=False):
         with st.form("nova_missao", clear_on_submit=True):
             c_data, c_hora = st.columns(2)
-            data_task = c_data.date_input("DATA", date.today())
+            # DATA CORRIGIDA NO INPUT PADRÃO
+            data_task = c_data.date_input("DATA", get_fabi_date())
             hora_task = c_hora.time_input("HORA", time(9, 0))
             task_desc = st.text_input("MISSÃO")
             if st.form_submit_button("AGENDAR"):
