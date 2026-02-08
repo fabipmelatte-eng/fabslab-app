@@ -135,7 +135,7 @@ def processar_dado(desc, valor, tipo, is_legacy):
 
 # --- 6. HEADER (HUD) ---
 st.markdown('<div class="header-title">FAB\'S LAB<span class="blink">.</span></div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">OPERATIONAL DASHBOARD • V35</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">OPERATIONAL DASHBOARD</div>', unsafe_allow_html=True)
 
 saldo_atual = 0.0
 if not st.session_state.financas.empty:
@@ -376,3 +376,4 @@ with abas[7]:
         st.success("SALVO")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
