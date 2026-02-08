@@ -201,7 +201,7 @@ with abas[1]:
 # --- ABA 3: ARSENAL ---
 with abas[2]:
     st.markdown("### ⚒️ INVENTÁRIO")
-    sub_abas = st.tabs(["💍 JOIAS", "🔧 OFICINA", "🚐 KOMBI", "💻 TECH", "🎒 PESSOAL"])
+    sub_abas = st.tabs(["💍 OURIVES", "🔧 MAKER", "🚐 KOMBI", "💻 TECH", "🎒 PESSOAL"])
     setores_map = ["OURIVESARIA", "OFICINA", "KOMBI", "TECNOLOGIA", "PESSOAL"]
     if not st.session_state.inventario.empty:
         for i, setor_alvo in enumerate(setores_map):
@@ -376,4 +376,5 @@ with abas[7]:
         st.success("SALVO")
     if os.path.exists(PASTA_DOCS):
         for arq in os.listdir(PASTA_DOCS): st.markdown(f"📄 {arq}")
+
 
